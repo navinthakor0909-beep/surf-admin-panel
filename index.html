@@ -51,9 +51,21 @@ button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:8px;backgr
 </div>
 
 <div id="adminBox" class="hidden">
-<h3>Admin Access Verified</h3>
-<p>Admin Panel login successful.</p>
-<button class="secondary" onclick="logout()">Logout</button>
+  <h2>Surf Admin Dashboard</h2>
+
+  <button onclick="loadAdminReports()">Refresh Reports</button>
+  <button class="secondary" onclick="logout()">Logout</button>
+
+  <h3>Video Reports</h3>
+  <div id="adminReports">Reports load ho rahe hain...</div>
+
+  <div id="adminPlayerBox" class="hidden">
+    <h3 id="adminVideoTitle"></h3>
+    <video id="adminPlayer" controls playsinline
+      style="width:100%;max-width:500px;background:#000">
+    </video>
+    <button class="secondary" onclick="closeAdminPlayer()">Close Video</button>
+  </div>
 </div>
 
 <p id="message"></p>
@@ -92,8 +104,8 @@ async function checkAdmin(){
     return false;
   }
   show('adminBox');
-  return true;
-}
+await loadAdminReports();
+return true;
 async function passwordLogin(){
   const email=getEmail();
   const password=document.getElementById('password').value;
@@ -159,6 +171,146 @@ async function logout(){
 sb.auth.getSession().then(({data})=>{
   if(data.session)checkAdmin();
 });
+  const VIDEO_BUCKET = 'Videos';
+
+async function isAdmin(){
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return false;
+
+  const {data,error} = await sb
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id',user.id)
+    .maybeSingle();
+
+  return !error && !!data;
+}
+
+async function adminSignedUrl(path){
+  const {data,error} = await sb.storage
+    .from(VIDEO_BUCKET)
+    .createSignedUrl(path,3600);
+
+  if(error) throw error;
+  return data.signedUrl;
+}
+
+async function loadAdminReports(){
+  const box = document.getElementById('adminReports');
+  box.textContent = 'Reports load ho rahe hain...';
+
+  if(!await isAdmin()){
+    box.textContent = 'Admin access nahi hai.';
+    return;
+  }
+
+  const {data:reports,error} = await sb
+    .from('video_reports')
+    .select('id,video_id,reason,created_at,videos(id,title,file_path,thumbnail_path)')
+    .order('created_at',{ascending:false});
+
+  if(error){
+    box.textContent = 'Error: '+error.message;
+    return;
+  }
+
+  box.innerHTML = '';
+
+  if(!reports || !reports.length){
+    box.textContent = 'Abhi koi report nahi hai.';
+    return;
+  }
+
+  for(const r of reports){
+    const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
+    const div = document.createElement('div');
+    div.style.padding = '12px';
+    div.style.borderBottom = '1px solid #555';
+
+    const title = document.createElement('h3');
+    title.textContent = v?.title || 'Video nahi mila';
+
+    const reason = document.createElement('p');
+    reason.textContent = 'Reason: '+r.reason;
+    div.append(title,reason);
+
+    if(v){
+      if(v.thumbnail_path){
+        try{
+          const img = document.createElement('img');
+          img.src = await adminSignedUrl(v.thumbnail_path);
+          img.style.width = '180px';
+          div.appendChild(img);
+        }catch(e){}
+      }
+
+      const watch = document.createElement('button');
+      watch.textContent = '▶ Watch Video';
+      watch.onclick = () => adminWatch(v);
+      div.appendChild(watch);
+
+      const delVideo = document.createElement('button');
+      delVideo.textContent = 'Delete Video';
+      delVideo.onclick = () => deleteAdminVideo(v,r.id);
+      div.appendChild(delVideo);
+    }
+
+    const delReport = document.createElement('button');
+    delReport.textContent = 'Delete Report';
+    delReport.className = 'secondary';
+    delReport.onclick = () => deleteAdminReport(r.id);
+    div.appendChild(delReport);
+
+    box.appendChild(div);
+  }
+}
+
+async function adminWatch(v){
+  try{
+    if(!await isAdmin()) return alert('Admin access nahi hai.');
+    document.getElementById('adminVideoTitle').textContent = v.title || '';
+    const player = document.getElementById('adminPlayer');
+    player.src = await adminSignedUrl(v.file_path);
+    document.getElementById('adminPlayerBox').classList.remove('hidden');
+    player.play();
+  }catch(e){
+    alert('Video nahi khul saka: '+e.message);
+  }
+}
+
+function closeAdminPlayer(){
+  const player = document.getElementById('adminPlayer');
+  player.pause();
+  player.removeAttribute('src');
+  player.load();
+  document.getElementById('adminPlayerBox').classList.add('hidden');
+}
+
+async function deleteAdminReport(id){
+  if(!await isAdmin()) return alert('Admin access nahi hai.');
+  if(!confirm('Report delete karni hai?')) return;
+
+  const {error} = await sb.from('video_reports').delete().eq('id',id);
+  if(error) alert(error.message);
+  else loadAdminReports();
+}
+
+async function deleteAdminVideo(v,reportId){
+  if(!await isAdmin()) return alert('Admin access nahi hai.');
+  if(!confirm('Kya aap ye video permanently delete karna chahte hain?')) return;
+
+  const {error} = await sb.from('videos').delete().eq('id',v.id);
+  if(error) return alert(error.message);
+
+  const paths = [v.file_path,v.thumbnail_path].filter(Boolean);
+  if(paths.length){
+    const {error:storageError} = await sb.storage
+      .from(VIDEO_BUCKET).remove(paths);
+    if(storageError) alert('Video record delete hua, lekin file delete nahi hui: '+storageError.message);
+  }
+
+  await deleteAdminReport(reportId);
+      }
 </script>
 </body>
   </html>
