@@ -1,319 +1,449 @@
-
 <!DOCTYPE html>
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Surf Admin Login</title>
+<title>Surf Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#101010;color:white;font-family:Arial;min-height:100vh;display:grid;place-items:center;padding:18px}
-.card{width:100%;max-width:390px;background:#1c1c1c;padding:25px;border-radius:16px}
+body{margin:0;background:#101010;color:#fff;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:18px}
+.card{width:100%;max-width:520px;background:#1c1c1c;padding:22px;border-radius:16px}
 h2{text-align:center;margin-top:0}
-p{color:#aaa;text-align:center;font-size:14px}
-input{width:100%;padding:14px;margin:8px 0;background:#292929;border:1px solid #444;border-radius:8px;color:white;font-size:16px}
+p{color:#bbb;font-size:14px}
+input{width:100%;padding:14px;margin:8px 0;background:#292929;border:1px solid #444;border-radius:8px;color:#fff;font-size:16px}
 button{width:100%;padding:13px;margin-top:10px;border:0;border-radius:8px;background:#fff;color:#111;font-size:15px;font-weight:bold}
-.secondary{background:#333;color:white}
+.secondary{background:#333;color:#fff}
 .link{background:none;color:#ddd;text-decoration:underline}
-.hidden{display:none}
+.hidden{display:none!important}
 #message{color:#9ee7a8;word-break:break-word}
+.report{padding:14px 0;border-bottom:1px solid #555}
+.report img{width:180px;max-width:100%;display:block;border-radius:8px;margin:10px 0}
+video{width:100%;max-width:500px;background:#000;margin-top:10px}
 </style>
 </head>
 <body>
 <div class="card">
-<h2>Surf Admin</h2>
-<p>Admin Login Panel</p>
+  <h2>Surf Admin</h2>
+  <p style="text-align:center">Admin Login Panel</p>
 
-<div id="loginBox">
-<input id="email" type="email" placeholder="Gmail">
-<input id="password" type="password" placeholder="Password">
-<button onclick="passwordLogin()">Password Login</button>
-<button class="secondary" onclick="sendLoginOtp()">Login with OTP</button>
-<button class="link" onclick="showForgot()">Forgot Password?</button>
-</div>
+  <section id="loginBox">
+    <input id="email" type="email" autocomplete="username" placeholder="Gmail">
+    <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+    <button id="passwordLoginBtn" type="button">Password Login</button>
+    <button id="sendOtpBtn" class="secondary" type="button">Login with OTP</button>
+    <button id="forgotBtn" class="link" type="button">Forgot Password?</button>
+  </section>
 
-<div id="otpBox" class="hidden">
-<h3>OTP Login</h3>
-<input id="loginOtp" inputmode="numeric" placeholder="Email OTP">
-<button onclick="verifyLoginOtp()">Verify OTP</button>
-<button class="link" onclick="showLogin()">Back to Login</button>
-</div>
+  <section id="otpBox" class="hidden">
+    <h3>OTP Login</h3>
+    <input id="loginOtp" inputmode="numeric" autocomplete="one-time-code" placeholder="Email OTP">
+    <button id="verifyOtpBtn" type="button">Verify OTP</button>
+    <button id="backFromOtpBtn" class="link" type="button">Back to Login</button>
+  </section>
 
-<div id="forgotBox" class="hidden">
-<h3>Forgot Password</h3>
-<input id="forgotEmail" type="email" placeholder="Gmail">
-<button onclick="sendResetOtp()">Send Reset OTP</button>
-<input id="resetOtp" inputmode="numeric" placeholder="OTP">
-<input id="newPassword" type="password" placeholder="New Password">
-<button onclick="resetPassword()">Verify OTP & Set Password</button>
-<button class="link" onclick="showLogin()">Back to Login</button>
-</div>
+  <section id="forgotBox" class="hidden">
+    <h3>Forgot Password</h3>
+    <input id="forgotEmail" type="email" autocomplete="username" placeholder="Gmail">
+    <button id="sendResetBtn" type="button">Send Reset OTP</button>
+    <input id="resetOtp" inputmode="numeric" autocomplete="one-time-code" placeholder="Reset OTP">
+    <input id="newPassword" type="password" autocomplete="new-password" placeholder="New Password">
+    <button id="resetPasswordBtn" type="button">Verify OTP & Set Password</button>
+    <button id="backFromForgotBtn" class="link" type="button">Back to Login</button>
+  </section>
 
-<div id="adminBox" class="hidden">
-  <h2>Surf Admin Dashboard</h2>
+  <section id="adminBox" class="hidden">
+    <h2>Surf Admin Dashboard</h2>
+    <button id="refreshReportsBtn" type="button">Refresh Reports</button>
+    <button id="logoutBtn" class="secondary" type="button">Logout</button>
+    <h3>Video Reports</h3>
+    <div id="adminReports">Reports load ho rahe hain...</div>
+    <div id="adminPlayerBox" class="hidden">
+      <h3 id="adminVideoTitle"></h3>
+      <video id="adminPlayer" controls playsinline></video>
+      <button id="closePlayerBtn" class="secondary" type="button">Close Video</button>
+    </div>
+  </section>
 
-  <button onclick="loadAdminReports()">Refresh Reports</button>
-  <button class="secondary" onclick="logout()">Logout</button>
-
-  <h3>Video Reports</h3>
-  <div id="adminReports">Reports load ho rahe hain...</div>
-
-  <div id="adminPlayerBox" class="hidden">
-    <h3 id="adminVideoTitle"></h3>
-    <video id="adminPlayer" controls playsinline
-      style="width:100%;max-width:500px;background:#000">
-    </video>
-    <button class="secondary" onclick="closeAdminPlayer()">Close Video</button>
-  </div>
-</div>
-
-<p id="message"></p>
+  <p id="message" role="status" aria-live="polite"></p>
 </div>
 
 <script>
-const SUPABASE_URL="https://scczyiossqleuzidplxx.supabase.co";
-const SUPABASE_KEY="sb_publishable_rvecUf_3ZkeAxnbAJ8iiiw_2mItGPT2";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+'use strict';
 
-function msg(t){document.getElementById('message').textContent=t}
-function show(id){
-  ['loginBox','otpBox','forgotBox','adminBox'].forEach(x=>
-    document.getElementById(x).classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+const SUPABASE_URL = 'https://scczyiossqleuzidplxx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_rvecUf_3ZkeAxnbAJ8iiiw_2mItGPT2';
+const VIDEO_BUCKET = 'Videos';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+
+function msg(text) {
+  $('message').textContent = text || '';
+}
+
+function show(sectionId) {
+  ['loginBox', 'otpBox', 'forgotBox', 'adminBox'].forEach((id) => {
+    $(id).classList.add('hidden');
+  });
+  $(sectionId).classList.remove('hidden');
   msg('');
 }
-function showLogin(){show('loginBox')}
-function showForgot(){
-  document.getElementById('forgotEmail').value=
-    document.getElementById('email').value;
+
+function getEmail() {
+  return $('email').value.trim();
+}
+
+function showLogin() {
+  show('loginBox');
+}
+
+function showForgot() {
+  $('forgotEmail').value = getEmail();
   show('forgotBox');
 }
-function getEmail(){
-  return document.getElementById('email').value.trim();
-}
-async function checkAdmin(){
-  const {data:{user}}=await sb.auth.getUser();
-  if(!user)return false;
-  const {data,error}=await sb.from('admin_users')
-    .select('user_id').eq('user_id',user.id).maybeSingle();
-  if(error||!data){
-    await sb.auth.signOut();
-    msg('Yeh account Admin nahi hai.');
-    showLogin();
-    return false;
-  }
-  show('adminBox');
-await loadAdminReports();
-return true;
-}
 
-async function passwordLogin(){
-  const email=getEmail();
-  const password=document.getElementById('password').value;
-  if(!email||!password){msg('Gmail aur Password bharein.');return}
-  msg('Login ho raha hai...');
-  const {error}=await sb.auth.signInWithPassword({email,password});
-  if(error){msg(error.message);return}
-  await checkAdmin();
-}
-async function sendLoginOtp(){
-  const email=getEmail();
-  if(!email){msg('Pehle Gmail likhein.');return}
-  msg('OTP bheja ja raha hai...');
-  const {error}=await sb.auth.signInWithOtp({
-    email,
-    options:{shouldCreateUser:false}
-  });
-  if(error){msg(error.message);return}
-  document.getElementById('otpBox').classList.remove('hidden');
-  document.getElementById('loginBox').classList.add('hidden');
-  msg('Gmail par OTP bhej diya gaya hai.');
-}
-async function verifyLoginOtp(){
-  const email=getEmail();
-  const token=document.getElementById('loginOtp').value.trim();
-  if(!token){msg('OTP likhein.');return}
-  msg('OTP verify ho raha hai...');
-  const {error}=await sb.auth.verifyOtp({
-    email,token,type:'email'
-  });
-  if(error){msg(error.message);return}
-  await checkAdmin();
-}
-async function sendResetOtp(){
-  const email=document.getElementById('forgotEmail').value.trim();
-  if(!email){msg('Gmail likhein.');return}
-  msg('Reset OTP bheja ja raha hai...');
-  const {error}=await sb.auth.resetPasswordForEmail(email);
-  if(error){msg(error.message);return}
-  msg('Reset OTP Gmail par bhej diya gaya hai.');
-}
-async function resetPassword(){
-  const email=document.getElementById('forgotEmail').value.trim();
-  const token=document.getElementById('resetOtp').value.trim();
-  const password=document.getElementById('newPassword').value;
-  if(!email||!token||!password){msg('Sabhi details bharein.');return}
-  if(password.length<6){msg('Password kam se kam 6 characters ka ho.');return}
-  msg('OTP verify ho raha hai...');
-  const {error}=await sb.auth.verifyOtp({
-    email,token,type:'recovery'
-  });
-  if(error){msg(error.message);return}
-  const {error:updateError}=await sb.auth.updateUser({password});
-  if(updateError){msg(updateError.message);return}
-  await sb.auth.signOut();
-  showLogin();
-  msg('Naya password set ho gaya. Ab login karein.');
-}
-async function logout(){
-  await sb.auth.signOut();
-  showLogin();
-}
-sb.auth.getSession().then(({data})=>{
-  if(data.session)checkAdmin();
-});
-  const VIDEO_BUCKET = 'Videos';
+async function isAdmin() {
+  const { data: { user }, error: userError } = await sb.auth.getUser();
+  if (userError || !user) return false;
 
-async function isAdmin(){
-  const {data:{user}} = await sb.auth.getUser();
-  if(!user) return false;
-
-  const {data,error} = await sb
+  const { data, error } = await sb
     .from('admin_users')
     .select('user_id')
-    .eq('user_id',user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   return !error && !!data;
 }
 
-async function adminSignedUrl(path){
-  const {data,error} = await sb.storage
-    .from(VIDEO_BUCKET)
-    .createSignedUrl(path,3600);
+async function checkAdmin() {
+  try {
+    const { data: { user }, error: userError } = await sb.auth.getUser();
+    if (userError || !user) {
+      showLogin();
+      msg(userError ? userError.message : 'Pehle login karein.');
+      return false;
+    }
 
-  if(error) throw error;
-  return data.signedUrl;
+    const { data: admin, error } = await sb
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error || !admin) {
+      await sb.auth.signOut();
+      showLogin();
+      msg(error ? 'Admin check error: ' + error.message : 'Yeh account Admin nahi hai.');
+      return false;
+    }
+
+    show('adminBox');
+    await loadAdminReports();
+    return true;
+  } catch (error) {
+    showLogin();
+    msg('Login check error: ' + error.message);
+    return false;
+  }
 }
 
-async function loadAdminReports(){
-  const box = document.getElementById('adminReports');
-  box.textContent = 'Reports load ho rahe hain...';
-
-  if(!await isAdmin()){
-    box.textContent = 'Admin access nahi hai.';
+async function passwordLogin() {
+  const email = getEmail();
+  const password = $('password').value;
+  if (!email || !password) {
+    msg('Gmail aur Password bharein.');
     return;
   }
 
-  const {data:reports,error} = await sb
+  msg('Login ho raha hai...');
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    msg(error.message);
+    return;
+  }
+  await checkAdmin();
+}
+
+async function sendLoginOtp() {
+  const email = getEmail();
+  if (!email) {
+    msg('Pehle Gmail likhein.');
+    return;
+  }
+
+  msg('OTP bheja ja raha hai...');
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false }
+  });
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+
+  show('otpBox');
+  msg('Gmail par OTP bhej diya gaya hai. OTP yahan likhein.');
+}
+
+async function verifyLoginOtp() {
+  const email = getEmail();
+  const token = $('loginOtp').value.trim();
+
+  if (!email || !token) {
+    msg('Gmail aur OTP dono bharein.');
+    return;
+  }
+
+  msg('OTP verify ho raha hai...');
+  const { error } = await sb.auth.verifyOtp({
+    email,
+    token,
+    type: 'email'
+  });
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+  await checkAdmin();
+}
+
+async function sendResetOtp() {
+  const email = $('forgotEmail').value.trim();
+  if (!email) {
+    msg('Gmail likhein.');
+    return;
+  }
+
+  msg('Reset OTP bheja ja raha hai...');
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+  msg('Reset email bhej diya gaya hai. Email template mein OTP hona chahiye.');
+}
+
+async function resetPassword() {
+  const email = $('forgotEmail').value.trim();
+  const token = $('resetOtp').value.trim();
+  const password = $('newPassword').value;
+
+  if (!email || !token || !password) {
+    msg('Gmail, OTP aur New Password bharein.');
+    return;
+  }
+  if (password.length < 6) {
+    msg('Password kam se kam 6 characters ka ho.');
+    return;
+  }
+
+  msg('OTP verify ho raha hai...');
+  const { error } = await sb.auth.verifyOtp({
+    email,
+    token,
+    type: 'recovery'
+  });
+
+  if (error) {
+    msg(error.message);
+    return;
+  }
+
+  const { error: updateError } = await sb.auth.updateUser({ password });
+  if (updateError) {
+    msg(updateError.message);
+    return;
+  }
+
+  await sb.auth.signOut();
+  $('password').value = '';
+  $('resetOtp').value = '';
+  $('newPassword').value = '';
+  showLogin();
+  msg('Naya password set ho gaya. Ab login karein.');
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  closeAdminPlayer();
+  showLogin();
+  msg('Logout ho gaya.');
+}
+
+async function adminSignedUrl(path) {
+  const { data, error } = await sb.storage
+    .from(VIDEO_BUCKET)
+    .createSignedUrl(path, 3600);
+
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function loadAdminReports() {
+  const box = $('adminReports');
+  box.textContent = 'Reports load ho rahe hain...';
+
+  if (!await isAdmin()) {
+    box.textContent = 'Admin access nahi hai. Dobara login karein.';
+    return;
+  }
+
+  const { data: reports, error } = await sb
     .from('video_reports')
     .select('id,video_id,reason,created_at,videos(id,title,file_path,thumbnail_path)')
-    .order('created_at',{ascending:false});
+    .order('created_at', { ascending: false });
 
-  if(error){
-    box.textContent = 'Error: '+error.message;
+  if (error) {
+    box.textContent = 'Reports error: ' + error.message;
     return;
   }
 
   box.innerHTML = '';
-
-  if(!reports || !reports.length){
+  if (!reports || reports.length === 0) {
     box.textContent = 'Abhi koi report nahi hai.';
     return;
   }
 
-  for(const r of reports){
-    const v = Array.isArray(r.videos) ? r.videos[0] : r.videos;
+  for (const report of reports) {
+    const video = Array.isArray(report.videos) ? report.videos[0] : report.videos;
     const div = document.createElement('div');
-    div.style.padding = '12px';
-    div.style.borderBottom = '1px solid #555';
+    div.className = 'report';
 
     const title = document.createElement('h3');
-    title.textContent = v?.title || 'Video nahi mila';
+    title.textContent = video?.title || 'Video nahi mila';
 
     const reason = document.createElement('p');
-    reason.textContent = 'Reason: '+r.reason;
-    div.append(title,reason);
+    reason.textContent = 'Reason: ' + (report.reason || 'Not specified');
+    div.append(title, reason);
 
-    if(v){
-      if(v.thumbnail_path){
-        try{
+    if (video) {
+      if (video.thumbnail_path) {
+        try {
           const img = document.createElement('img');
-          img.src = await adminSignedUrl(v.thumbnail_path);
-          img.style.width = '180px';
+          img.src = await adminSignedUrl(video.thumbnail_path);
+          img.alt = 'Video thumbnail';
           div.appendChild(img);
-        }catch(e){}
+        } catch (error) {
+          const note = document.createElement('p');
+          note.textContent = 'Thumbnail load nahi hua: ' + error.message;
+          div.appendChild(note);
+        }
       }
 
       const watch = document.createElement('button');
+      watch.type = 'button';
       watch.textContent = '▶ Watch Video';
-      watch.onclick = () => adminWatch(v);
+      watch.onclick = () => adminWatch(video);
       div.appendChild(watch);
 
-      const delVideo = document.createElement('button');
-      delVideo.textContent = 'Delete Video';
-      delVideo.onclick = () => deleteAdminVideo(v,r.id);
-      div.appendChild(delVideo);
+      const deleteVideo = document.createElement('button');
+      deleteVideo.type = 'button';
+      deleteVideo.className = 'secondary';
+      deleteVideo.textContent = 'Delete Video';
+      deleteVideo.onclick = () => deleteAdminVideo(video, report.id);
+      div.appendChild(deleteVideo);
     }
 
-    const delReport = document.createElement('button');
-    delReport.textContent = 'Delete Report';
-    delReport.className = 'secondary';
-    delReport.onclick = () => deleteAdminReport(r.id);
-    div.appendChild(delReport);
+    const deleteReport = document.createElement('button');
+    deleteReport.type = 'button';
+    deleteReport.className = 'secondary';
+    deleteReport.textContent = 'Delete Report';
+    deleteReport.onclick = () => deleteAdminReport(report.id);
+    div.appendChild(deleteReport);
 
     box.appendChild(div);
   }
 }
 
-async function adminWatch(v){
-  try{
-    if(!await isAdmin()) return alert('Admin access nahi hai.');
-    document.getElementById('adminVideoTitle').textContent = v.title || '';
-    const player = document.getElementById('adminPlayer');
-    player.src = await adminSignedUrl(v.file_path);
-    document.getElementById('adminPlayerBox').classList.remove('hidden');
-    player.play();
-  }catch(e){
-    alert('Video nahi khul saka: '+e.message);
+async function adminWatch(video) {
+  try {
+    if (!await isAdmin()) {
+      alert('Admin access nahi hai.');
+      return;
+    }
+    $('adminVideoTitle').textContent = video.title || '';
+    const player = $('adminPlayer');
+    player.src = await adminSignedUrl(video.file_path);
+    $('adminPlayerBox').classList.remove('hidden');
+    await player.play();
+  } catch (error) {
+    alert('Video nahi khul saka: ' + error.message);
   }
 }
 
-function closeAdminPlayer(){
-  const player = document.getElementById('adminPlayer');
+function closeAdminPlayer() {
+  const player = $('adminPlayer');
   player.pause();
   player.removeAttribute('src');
   player.load();
-  document.getElementById('adminPlayerBox').classList.add('hidden');
+  $('adminPlayerBox').classList.add('hidden');
 }
 
-async function deleteAdminReport(id){
-  if(!await isAdmin()) return alert('Admin access nahi hai.');
-  if(!confirm('Report delete karni hai?')) return;
+async function deleteAdminReport(id) {
+  if (!await isAdmin()) {
+    alert('Admin access nahi hai.');
+    return;
+  }
+  if (!confirm('Kya report delete karni hai?')) return;
 
-  const {error} = await sb.from('video_reports').delete().eq('id',id);
-  if(error) alert(error.message);
-  else loadAdminReports();
+  const { error } = await sb.from('video_reports').delete().eq('id', id);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+  await loadAdminReports();
 }
 
-async function deleteAdminVideo(v,reportId){
-  if(!await isAdmin()) return alert('Admin access nahi hai.');
-  if(!confirm('Kya aap ye video permanently delete karna chahte hain?')) return;
+async function deleteAdminVideo(video, reportId) {
+  if (!await isAdmin()) {
+    alert('Admin access nahi hai.');
+    return;
+  }
+  if (!confirm('Kya aap ye video permanently delete karna chahte hain?')) return;
 
-  const {error} = await sb.from('videos').delete().eq('id',v.id);
-  if(error) return alert(error.message);
+  const { error } = await sb.from('videos').delete().eq('id', video.id);
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
-  const paths = [v.file_path,v.thumbnail_path].filter(Boolean);
-  if(paths.length){
-    const {error:storageError} = await sb.storage
-      .from(VIDEO_BUCKET).remove(paths);
-    if(storageError) alert('Video record delete hua, lekin file delete nahi hui: '+storageError.message);
+  const paths = [video.file_path, video.thumbnail_path].filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await sb.storage.from(VIDEO_BUCKET).remove(paths);
+    if (storageError) {
+      alert('Video record delete hua, lekin storage file delete nahi hui: ' + storageError.message);
+    }
   }
 
   await deleteAdminReport(reportId);
-      }
-  
+}
+
+$('passwordLoginBtn').addEventListener('click', passwordLogin);
+$('sendOtpBtn').addEventListener('click', sendLoginOtp);
+$('forgotBtn').addEventListener('click', showForgot);
+$('verifyOtpBtn').addEventListener('click', verifyLoginOtp);
+$('backFromOtpBtn').addEventListener('click', showLogin);
+$('sendResetBtn').addEventListener('click', sendResetOtp);
+$('resetPasswordBtn').addEventListener('click', resetPassword);
+$('backFromForgotBtn').addEventListener('click', showLogin);
+$('refreshReportsBtn').addEventListener('click', loadAdminReports);
+$('logoutBtn').addEventListener('click', logout);
+$('closePlayerBtn').addEventListener('click', closeAdminPlayer);
+
+sb.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    showLogin();
+    msg(error.message);
+  } else if (data.session) {
+    checkAdmin();
+  } else {
+    showLogin();
+  }
+});
 </script>
 </body>
 </html>
